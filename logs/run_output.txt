@@ -1,0 +1,56 @@
+
+==============================================================================
+SCENARIO 1 — Versioned ordering: deliver v2, then v1, then v2 again
+==============================================================================
+RECV     order-1 v2 PAID                  | current=v0 None
+BUFFER   order-1 v2 PAID                  | waiting for missing v1; pending=[2]
+RECV     order-1 v1 CREATED               | current=v0 None
+APPLY    order-1 v1 CREATED               | order now v1 CREATED
+DRAIN    order-1 v2 PAID                  | gap filled, applying buffered event
+APPLY    order-1 v2 PAID                  | order now v2 PAID
+RECV     order-1 v2 PAID                  | current=v2 PAID
+IGNORE   order-1 v2 PAID                  | duplicate (already have v2)
+RECV     order-1 v3 SHIPPED               | current=v2 PAID
+APPLY    order-1 v3 SHIPPED               | order now v3 SHIPPED
+FINAL    order-1: v3 SHIPPED | history=['CREATED', 'PAID', 'SHIPPED'] | pending=[] | missing=[]
+RESULT   PASS: applied in order CREATED -> PAID -> SHIPPED, duplicate ignored
+
+==============================================================================
+SCENARIO 2 — Missing event: v1 arrives, v2 is lost, v3 arrives
+==============================================================================
+RECV     order-2 v1 CREATED               | current=v0 None
+APPLY    order-2 v1 CREATED               | order now v1 CREATED
+RECV     order-2 v3 SHIPPED               | current=v1 CREATED
+BUFFER   order-2 v3 SHIPPED               | waiting for missing v2; pending=[3]
+FINAL    order-2: v1 CREATED | history=['CREATED'] | pending=[3] | missing=[2]
+RESULT   PASS: order stayed at CREATED; v2 detected as missing, v3 pending
+
+-- late arrival: v2 finally shows up --
+RECV     order-2 v2 PAID                  | current=v1 CREATED
+APPLY    order-2 v2 PAID                  | order now v2 PAID
+DRAIN    order-2 v3 SHIPPED               | gap filled, applying buffered event
+APPLY    order-2 v3 SHIPPED               | order now v3 SHIPPED
+FINAL    order-2: v3 SHIPPED | history=['CREATED', 'PAID', 'SHIPPED'] | pending=[] | missing=[]
+RESULT   PASS: once the gap filled, v2 and buffered v3 applied in order
+
+==============================================================================
+SCENARIO 3 — Stale worker: fencing tokens reject the old lease holder
+==============================================================================
+RECV     order-3 v1 CREATED               | current=v0 None
+APPLY    order-3 v1 CREATED               | order now v1 CREATED
+LOCK     order-3 granted to worker-A with fencing token 1 (expires t=5)
+PAUSE    worker-A stalls (e.g. long GC pause) while holding token 1
+LOCK     order-3 denied to worker-B (held by worker-A until t=5)
+LOCK     order-3 granted to worker-B with fencing token 2 (expires t=11)
+RECV     order-3 v2 PAID, token=2         | current=v1 CREATED
+APPLY    order-3 v2 PAID, token=2         | order now v2 PAID
+RESUME   worker-A wakes up, thinks it still holds the lock
+RECV     order-3 v3 SHIPPED, token=1      | current=v2 PAID
+REJECT   order-3 v3 SHIPPED, token=1      | stale token 1 < highest seen 2
+FINAL    order-3: v2 PAID | history=['CREATED', 'PAID'] | pending=[] | missing=[]
+RESULT   PASS: worker-B (token 2) updated; worker-A (token 1) rejected
+
+==============================================================================
+BONUS — Chaos: 1000 runs of shuffled delivery with random duplicates
+==============================================================================
+RESULT   PASS: all 1000 random delivery orders converged to CREATED -> PAID -> SHIPPED

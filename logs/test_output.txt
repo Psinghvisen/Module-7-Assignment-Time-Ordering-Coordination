@@ -1,0 +1,12 @@
+test_stale_token_rejected (test_order_system.FencingTests.test_stale_token_rejected) ... ok
+test_tokens_increase (test_order_system.FencingTests.test_tokens_increase) ... ok
+test_does_not_jump_ahead (test_order_system.MissingEventTests.test_does_not_jump_ahead) ... ok
+test_gap_fills_later (test_order_system.MissingEventTests.test_gap_fills_later) ... ok
+test_duplicate_while_buffered_is_ignored (test_order_system.OrderingTests.test_duplicate_while_buffered_is_ignored) ... ok
+test_invalid_status_for_version_rejected (test_order_system.OrderingTests.test_invalid_status_for_version_rejected) ... ok
+test_v2_v1_v2_again (test_order_system.OrderingTests.test_v2_v1_v2_again) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.001s
+
+OK
