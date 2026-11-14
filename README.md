@@ -167,7 +167,7 @@ Full output: [`logs/run_output.txt`](logs/run_output.txt), [`logs/test_output.tx
 Each machine in a distributed system has its own clock, and those clocks drift and get
 adjusted by NTP, sometimes backward. So a later event can carry an earlier timestamp than the
 event before it. Even with perfectly synchronized clocks, a timestamp only says when an event
-was *created*. It doesn't say when the event will *arrive*, so a receiver can't tell whether an
+was *created*, not when it will *arrive*, so a receiver can't tell whether an
 earlier event is still in flight or was lost, and two events with the same timestamp have no
 defined order. A per-entity version number solves both problems: the receiver knows exactly which
 version should come next, can detect gaps and duplicates, and can wait instead of guessing. For
